@@ -12,7 +12,5 @@ web/homescreen.html
 web/pcs/
 web/boards/
 
-# v2 — publishable navigator; board images stay LOCAL ONLY (licensed PCS)
-v2/boards/*
-!v2/boards/.gitkeep
+# v2 — published navigator (board pictograms included per project decision)
 !v2/README.md

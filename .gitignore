@@ -1,0 +1,12 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+
+# EyeTrax artifacts
+*.pkl
+*.joblib
+
+# OS
+.DS_Store

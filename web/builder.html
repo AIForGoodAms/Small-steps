@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>STYX Builder — bouw je eigen zin</title>
+<style>
+  :root{
+    --wie:#2563eb; --actie:#8b5cf6; --ding:#16a34a; --hoe:#f59e0b; --gevoel:#eab308;
+    --composite:#ec4899; --accent:#f59e0b; --bg:#1f2430; --panel:#eef2f6; --ink:#1f2937;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       background:var(--bg);color:#e7ecf3;padding:16px;display:flex;flex-direction:column;align-items:center}
+  h1{font-size:18px;margin:0 0 2px}
+  .sub{color:#9aa4b1;font-size:13px;margin:0 0 12px}
+  .wrap{width:100%;max-width:1200px}
+
+  .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:#171b24;border:1px solid #2a3140;
+       border-radius:12px;padding:10px 12px;margin-bottom:12px}
+  .btn{background:#272e3b;color:#dbe2ec;border:1px solid #38414f;border-radius:10px;padding:8px 14px;
+       font-size:14px;cursor:pointer;display:flex;align-items:center;gap:6px}
+  .btn.primary{background:var(--accent);color:#1b1e24;border-color:var(--accent);font-weight:700}
+  .btn.pink{background:var(--composite);color:#fff;border-color:var(--composite);font-weight:700}
+  .spacer{flex:1}
+  details.settings{margin-left:auto;color:#9aa4b1;font-size:13px}
+  details.settings input{background:#11151c;border:1px solid #2a3140;color:#e7ecf3;border-radius:8px;
+       padding:6px 8px;font-size:12px;margin:4px 0;width:230px}
+  details.settings summary{cursor:pointer}
+
+  /* ── SEQUENCE ROW (the program) ── */
+  .stage{background:var(--panel);border-radius:16px;padding:16px;color:var(--ink);margin-bottom:14px}
+  .seqlabel{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:#8a94a1;margin-bottom:8px}
+  .seqrow{display:flex;align-items:center;gap:0;flex-wrap:wrap;min-height:108px}
+  .slot{width:104px;height:104px;border-radius:14px;border:2px dashed #c4ccd6;display:flex;
+       align-items:center;justify-content:center;color:#b3bcc7;font-size:30px;background:#f7f9fb}
+  .conn{color:#c4ccd6;font-size:26px;padding:0 4px;user-select:none}
+  .block{position:relative;width:104px;height:104px;border-radius:14px;cursor:pointer;color:#fff;
+       display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;
+       box-shadow:0 3px 0 rgba(0,0,0,.18);user-select:none;border:2px solid rgba(255,255,255,.25)}
+  .block .lab{font-size:13px;font-weight:700;position:absolute;top:6px;text-shadow:0 1px 2px rgba(0,0,0,.25)}
+  .block .pic{flex:1;display:flex;align-items:center;justify-content:center;margin-top:14px;width:100%;
+       background-size:contain;background-repeat:no-repeat;background-position:center}
+  .block .pic .emoji{font-size:42px}
+  .block .pic.has-img .emoji{display:none}
+  .block .x{position:absolute;bottom:4px;right:6px;font-size:12px;opacity:.85}
+  .block.wie{background:var(--wie)} .block.actie{background:var(--actie)}
+  .block.ding{background:var(--ding)} .block.hoe{background:var(--hoe)}
+  .block.gevoel{background:var(--gevoel);color:#3a2f00} .block.gevoel .lab{color:#3a2f00;text-shadow:none}
+  .block .dwell{position:absolute;left:0;bottom:0;height:5px;width:0;background:#fff;opacity:.9}
+
+  /* interpretation */
+  .interp{margin-top:14px;background:#fff;border:1px solid #e1e6ec;border-radius:12px;padding:14px 16px;
+       display:flex;align-items:center;gap:12px;min-height:62px}
+  .interp .txt{font-size:24px;font-weight:700;color:#111;flex:1}
+  .interp .txt.empty{color:#9aa4b1;font-weight:400;font-size:16px}
+  .interp .play{background:var(--wie);color:#fff;border:none;border-radius:10px;width:52px;height:52px;
+       font-size:22px;cursor:pointer}
+
+  /* ── PALETTE ── */
+  .palette{background:#171b24;border:1px solid #2a3140;border-radius:14px;padding:12px;margin-bottom:14px}
+  .cat{margin-bottom:10px}
+  .cat h3{font-size:12px;text-transform:uppercase;letter-spacing:.6px;margin:0 0 6px;color:#9aa4b1}
+  .tiles{display:flex;flex-wrap:wrap;gap:8px}
+  .tile{position:relative;width:88px;height:88px;border-radius:12px;cursor:pointer;color:#fff;
+       display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;
+       box-shadow:0 2px 0 rgba(0,0,0,.2);border:2px solid rgba(255,255,255,.2);user-select:none}
+  .tile .lab{font-size:12px;font-weight:700;position:absolute;top:5px;text-shadow:0 1px 2px rgba(0,0,0,.25)}
+  .tile .pic{flex:1;display:flex;align-items:center;justify-content:center;margin-top:12px;width:100%;
+       background-size:contain;background-repeat:no-repeat;background-position:center}
+  .tile .pic .emoji{font-size:36px}
+  .tile .pic.has-img .emoji{display:none}
+  .tile.wie{background:var(--wie)} .tile.actie{background:var(--actie)}
+  .tile.ding{background:var(--ding)} .tile.hoe{background:var(--hoe)}
+  .tile.gevoel{background:var(--gevoel);color:#3a2f00} .tile.gevoel .lab{color:#3a2f00;text-shadow:none}
+  .tile .dwell{position:absolute;left:0;bottom:0;height:5px;width:0;background:#fff;opacity:.9}
+
+  /* ── STORY lane (composite blocks) ── */
+  .story{background:#171b24;border:1px solid #2a3140;border-radius:14px;padding:12px}
+  .story h3{font-size:12px;text-transform:uppercase;letter-spacing:.6px;margin:0 0 8px;color:#9aa4b1;
+       display:flex;align-items:center;gap:10px}
+  .mytiles,.lane{display:flex;gap:10px;flex-wrap:wrap;min-height:96px}
+  .lane{border-top:1px dashed #2a3140;margin-top:10px;padding-top:10px}
+  .ctile{position:relative;min-width:150px;max-width:210px;border-radius:14px;cursor:pointer;
+       background:var(--composite);color:#fff;padding:10px 12px;
+       box-shadow:0 3px 0 rgba(0,0,0,.25), 5px 7px 0 -2px rgba(236,72,153,.45);
+       border:2px solid rgba(255,255,255,.25);user-select:none}
+  .ctile .name{font-weight:800;font-size:13px;display:flex;align-items:center;gap:6px;margin-bottom:6px}
+  .ctile .dots{display:flex;gap:3px;margin-bottom:6px}
+  .ctile .dots span{font-size:15px}
+  .ctile .sent{font-size:13px;line-height:1.25;opacity:.95}
+  .ctile .dwell{position:absolute;left:0;bottom:0;height:5px;width:0;background:#fff;opacity:.9;border-radius:0 0 12px 12px}
+  .empty-hint{color:#5f6b7a;font-size:13px;align-self:center}
+
+  /* eye gaze */
+  #gazeDot{position:fixed;width:28px;height:28px;border:3px solid var(--accent);border-radius:50%;
+       margin-left:-14px;margin-top:-14px;pointer-events:none;z-index:60;display:none;
+       box-shadow:0 0 14px rgba(245,158,11,.85);transition:left .04s linear,top .04s linear}
+  #gazeDot.on{display:block}
+  .flash{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.5);z-index:50}
+  .flash.show{display:flex}
+  .flash .card{background:#fff;color:#111;border-radius:16px;padding:28px 40px;font-size:30px;font-weight:800;max-width:80vw;text-align:center}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>STYX Builder — bouw je eigen zin 🧱</h1>
+    <p class="sub">Kies tegels, zet ze op een rij (max 6), en de motor maakt er een echte zin van — en leest die voor.</p>
+
+    <div class="bar">
+      <button class="btn primary" id="readBtn">🔊 Lees voor</button>
+      <button class="btn pink" id="saveBtn">💾 Bewaar als tegel</button>
+      <button class="btn" id="clearBtn">⌫ Wis rij</button>
+      <button class="btn" id="eyeBtn">👁️ Eye tracking: uit</button>
+      <details class="settings">
+        <summary>⚙️ ElevenLabs</summary>
+        <div><input id="elKey" placeholder="ElevenLabs API key" type="password"></div>
+        <div><input id="elVoice" placeholder="Voice ID (optioneel)"></div>
+        <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="elOn"> gebruik ElevenLabs</label>
+      </details>
+    </div>
+
+    <!-- THE PROGRAM -->
+    <div class="stage">
+      <div class="seqlabel">Jouw zin — stap voor stap</div>
+      <div class="seqrow" id="seqrow"></div>
+      <div class="interp">
+        <button class="play" id="playInterp">🔊</button>
+        <div class="txt empty" id="interp">Kies een tegel om te beginnen…</div>
+      </div>
+    </div>
+
+    <!-- PALETTE -->
+    <div class="palette" id="palette"></div>
+
+    <!-- STORY -->
+    <div class="story">
+      <h3>🧩 Mijn tegels <span style="color:#5f6b7a;font-weight:400;text-transform:none;letter-spacing:0">— bewaarde zinnen, tik om aan het verhaal toe te voegen</span></h3>
+      <div class="mytiles" id="mytiles"><span class="empty-hint">Nog geen bewaarde tegels. Bouw een zin en klik “Bewaar als tegel”.</span></div>
+      <h3 style="margin-top:12px">📖 Verhaal <button class="btn" id="playStory" style="padding:4px 10px;font-size:12px">▶ Lees verhaal</button> <button class="btn" id="clearStory" style="padding:4px 10px;font-size:12px">wis</button></h3>
+      <div class="lane" id="lane"><span class="empty-hint">Tik bewaarde tegels aan om een verhaal te bouwen.</span></div>
+    </div>
+  </div>
+
+  <div id="gazeDot"></div>
+  <div class="flash" id="flash"><div class="card" id="flashCard"></div></div>
+
+<script>
+/* ───────────────  PALETTE DATA (Scratch-stijl categorieën)  ─────────────── */
+const PALETTE = [
+  {cat:"wie",  title:"Wie", tiles:[
+    {label:"ik",word:"ik",emoji:"🙋",kw:"ik"},
+    {label:"jij",word:"jij",emoji:"👉",kw:"jij"},
+    {label:"mama",word:"mama",emoji:"👩",kw:"moeder"},
+    {label:"papa",word:"papa",emoji:"👨",kw:"vader"},
+  ]},
+  {cat:"actie",title:"Doen", tiles:[
+    {label:"wil",word:"wil",emoji:"✋",kw:"willen"},
+    {label:"drinken",word:"drinken",emoji:"🥤",kw:"drinken"},
+    {label:"eten",word:"eten",emoji:"🍎",kw:"eten"},
+    {label:"kijken",word:"kijken",emoji:"📺",kw:"kijken"},
+    {label:"luisteren",word:"luisteren",emoji:"🎧",kw:"luisteren"},
+    {label:"schilderen",word:"schilderen",emoji:"🎨",kw:"schilderen"},
+    {label:"naar buiten",word:"naar buiten",emoji:"🌳",kw:"buiten"},
+  ]},
+  {cat:"ding", title:"Ding", tiles:[
+    {label:"water",word:"water",emoji:"💧",kw:"water"},
+    {label:"muziek",word:"muziek",emoji:"🎵",kw:"muziek"},
+    {label:"televisie",word:"televisie",emoji:"📺",kw:"televisie"},
+    {label:"verf",word:"verf",emoji:"🎨",kw:"verf"},
+    {label:"bad",word:"bad",emoji:"🛁",kw:"bad"},
+  ]},
+  {cat:"hoe",  title:"Hoe", tiles:[
+    {label:"koud",word:"koud",emoji:"❄️",kw:"koud"},
+    {label:"warm",word:"warm",emoji:"🔥",kw:"warm"},
+    {label:"meer",word:"meer",emoji:"➕",kw:"meer"},
+    {label:"nu",word:"nu",emoji:"⏱️",kw:"nu"},
+    {label:"alsjeblieft",word:"alsjeblieft",emoji:"🙏",kw:"alsjeblieft"},
+  ]},
+  {cat:"gevoel",title:"Gevoel", tiles:[
+    {label:"blij",word:"blij",emoji:"😀",kw:"blij"},
+    {label:"moe",word:"moe",emoji:"😴",kw:"moe"},
+    {label:"pijn",word:"pijn",emoji:"🤕",kw:"pijn"},
+    {label:"niet lekker",word:"niet lekker",emoji:"🤢",kw:"ziek"},
+  ]},
+];
+
+/* bekende combinaties → natuurlijke zin (de "motor") */
+const COMBOS = {
+  "ik|wil|drinken|koud":"Ik wil graag iets kouds drinken",
+  "ik|drinken|koud":"Ik heb dorst, ik wil iets kouds drinken",
+  "ik|wil|drinken":"Ik wil graag iets drinken",
+  "ik|wil|water|koud":"Ik wil graag koud water",
+  "ik|wil|naar buiten":"Ik wil graag naar buiten",
+  "ik|wil|muziek":"Ik wil naar muziek luisteren",
+  "ik|wil|luisteren|muziek":"Ik wil naar muziek luisteren",
+  "ik|wil|schilderen":"Ik wil graag schilderen",
+  "ik|wil|kijken|televisie":"Ik wil televisie kijken",
+  "ik|moe":"Ik ben moe",
+  "ik|pijn":"Ik heb pijn",
+  "ik|niet lekker":"Ik voel me niet lekker",
+  "mama|alsjeblieft":"Mama, kom je alsjeblieft bij me?",
+};
+
+const CATOF = {}; PALETTE.forEach(c=>c.tiles.forEach(t=>CATOF[t.word]=c.cat));
+const MAX=6;
+let seq=[];          // [{label,word,emoji,kw,cat}]
+let saved=[];        // composite tiles [{name,emoji,sentence,tiles:[...]}]
+let story=[];        // [sentence,...]
+
+const $=s=>document.querySelector(s);
+
+/* ───────────────  SPEECH (Web Speech + ElevenLabs)  ─────────────── */
+let nlVoice=null;
+function pickVoice(){const vs=speechSynthesis.getVoices();nlVoice=vs.find(v=>v.lang&&v.lang.toLowerCase().startsWith("nl"))||null;}
+speechSynthesis.onvoiceschanged=pickVoice;pickVoice();
+function speakWeb(t){if(!t)return;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang="nl-NL";if(nlVoice)u.voice=nlVoice;u.rate=.98;speechSynthesis.speak(u);}catch(e){}}
+async function speakEleven(t){
+  const key=$("#elKey").value.trim(); if(!$("#elOn").checked||!key)return false;
+  const voice=$("#elVoice").value.trim()||"EXAVITQu4vr4xnSDxMaL";
+  try{
+    const r=await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}`,{
+      method:"POST",headers:{"xi-api-key":key,"Content-Type":"application/json"},
+      body:JSON.stringify({text:t,model_id:"eleven_multilingual_v2",voice_settings:{stability:.4,similarity_boost:.85}})
+    });
+    if(!r.ok)return false;
+    const url=URL.createObjectURL(new Blob([await r.arrayBuffer()],{type:"audio/mpeg"}));
+    new Audio(url).play(); return true;
+  }catch(e){return false;}
+}
+async function say(t){ if(!(await speakEleven(t))) speakWeb(t); }
+
+/* ───────────────  ARASAAC  ─────────────── */
+const pc={};
+async function picto(el,kw){if(!kw)return;try{let id=pc[kw];
+  if(id===undefined){const r=await fetch(`https://api.arasaac.org/api/pictograms/nl/search/${encodeURIComponent(kw)}`);const d=await r.json();id=(d&&d.length)?d[0]._id:null;pc[kw]=id;}
+  if(!id)return;const u=`https://static.arasaac.org/pictograms/${id}/${id}_300.png`;const im=new Image();im.onload=()=>{el.style.backgroundImage=`url(${u})`;el.classList.add("has-img");};im.src=u;}catch(e){}}
+
+/* ───────────────  DWELL (pointer + gaze)  ─────────────── */
+const DWELL=800;
+function dwellable(el,fire){
+  const bar=el.querySelector(".dwell");let t=null;
+  el.setAttribute("data-dwell","1");el._fire=fire;
+  el._start=()=>{if(bar){bar.style.transition="none";bar.style.width="0";requestAnimationFrame(()=>{bar.style.transition=`width ${DWELL}ms linear`;bar.style.width="100%";});}t=setTimeout(()=>{if(bar)bar.style.width="0";fire();},DWELL);};
+  el._cancel=()=>{if(t){clearTimeout(t);t=null;}if(bar){bar.style.transition="none";bar.style.width="0";}};
+  el.addEventListener("click",fire);
+  el.addEventListener("pointerenter",()=>{if(!gaze.on)el._start();});
+  el.addEventListener("pointerleave",()=>{if(!gaze.on)el._cancel();});
+}
+
+/* ───────────────  EYE TRACKING (EyeTrax bridge)  ─────────────── */
+const gaze={on:false,ws:null,el:null,sx:.5,sy:.5};
+function connectGaze(){try{gaze.ws=new WebSocket("ws://localhost:8765");}catch(e){setEye(false,"geen bridge");return;}
+  gaze.ws.onopen=()=>setEye(true);gaze.ws.onclose=()=>setEye(false,"weg");gaze.ws.onerror=()=>setEye(false,"geen bridge");
+  gaze.ws.onmessage=e=>{try{const d=JSON.parse(e.data);if(d.nx!=null)onGaze(d.nx,d.ny);}catch(_){}};}
+function setEye(on,m){gaze.on=on;$("#gazeDot").classList.toggle("on",on);$("#eyeBtn").textContent="👁️ Eye tracking: "+(on?"aan":(m||"uit"));if(!on&&gaze.el){gaze.el._cancel&&gaze.el._cancel();gaze.el=null;}}
+function onGaze(nx,ny){gaze.sx=.4*nx+.6*gaze.sx;gaze.sy=.4*ny+.6*gaze.sy;
+  const x=gaze.sx*innerWidth,y=gaze.sy*innerHeight;const dot=$("#gazeDot");dot.style.left=x+"px";dot.style.top=y+"px";
+  const hit=document.elementFromPoint(x,y);const dw=hit&&hit.closest?hit.closest("[data-dwell]"):null;
+  if(dw!==gaze.el){if(gaze.el&&gaze.el._cancel)gaze.el._cancel();gaze.el=dw;if(gaze.el&&gaze.el._start)gaze.el._start();}}
+
+/* ───────────────  DE MOTOR: tegels → natuurlijke zin  ─────────────── */
+function cap(s){return s.charAt(0).toUpperCase()+s.slice(1);}
+function interpret(tiles){
+  const words=tiles.map(t=>t.word);
+  if(!words.length) return "";
+  const key=words.join("|");
+  if(COMBOS[key]) return COMBOS[key];
+  const get=c=>tiles.filter(t=>t.cat===c).map(t=>t.word);
+  const subj=get("wie")[0]||"ik";
+  const acts=get("actie"), dings=get("ding"),
+        hoes=get("hoe").filter(h=>!["nu","alsjeblieft"].includes(h)), gevs=get("gevoel");
+  let core=[];
+  if(acts.length){
+    core.push(subj, acts[0]);
+    if(dings.length) core.push(hoes.join(" "), dings.join(" en "));
+    else if(hoes.length) core.push(hoes.join(" "));
+    if(acts[1]) core.push(acts[1]);
+  } else if(gevs.length){
+    if(gevs.includes("moe")) return cap(subj)+" ben moe";
+    if(gevs.includes("blij")) return cap(subj)+" ben blij";
+    if(gevs.includes("pijn")) return cap(subj)+" heb pijn";
+    if(gevs.includes("niet lekker")) return cap(subj)+" voel me niet lekker";
+    core=[subj,"ben",gevs.join(" ")];
+  } else if(dings.length){
+    core=[subj,"wil",hoes.join(" "),dings.join(" en ")];
+  } else {
+    core=words;
+  }
+  let s=core.filter(Boolean).join(" ");
+  if(get("hoe").includes("nu")) s+=" nu";
+  if(get("hoe").includes("alsjeblieft")) s+=", alsjeblieft";
+  return cap(s.replace(/\s+/g," ").trim());
+}
+
+/* ───────────────  RENDER  ─────────────── */
+function renderSeq(){
+  const row=$("#seqrow"); row.innerHTML="";
+  for(let i=0;i<MAX;i++){
+    if(i>0){const c=document.createElement("div");c.className="conn";c.textContent="▸";row.appendChild(c);}
+    const t=seq[i];
+    if(!t){const s=document.createElement("div");s.className="slot";s.textContent="+";row.appendChild(s);continue;}
+    const b=document.createElement("div");b.className="block "+t.cat;
+    b.innerHTML=`<div class="lab">${t.label}</div><div class="pic"><span class="emoji">${t.emoji}</span></div><div class="x">✕ verwijder</div><div class="dwell"></div>`;
+    picto(b.querySelector(".pic"),t.kw);
+    dwellable(b,()=>{seq.splice(i,1);renderSeq();updateInterp();});
+    row.appendChild(b);
+  }
+  updateInterp();
+}
+function updateInterp(){
+  const s=interpret(seq);
+  const el=$("#interp");
+  if(!s){el.className="txt empty";el.textContent="Kies een tegel om te beginnen…";}
+  else{el.className="txt";el.textContent='"'+s+'"';}
+}
+function renderPalette(){
+  const p=$("#palette");p.innerHTML="";
+  PALETTE.forEach(c=>{
+    const sec=document.createElement("div");sec.className="cat";
+    sec.innerHTML=`<h3>${c.title}</h3>`;
+    const wrap=document.createElement("div");wrap.className="tiles";
+    c.tiles.forEach(t=>{
+      const el=document.createElement("div");el.className="tile "+c.cat;
+      el.innerHTML=`<div class="lab">${t.label}</div><div class="pic"><span class="emoji">${t.emoji}</span></div><div class="dwell"></div>`;
+      picto(el.querySelector(".pic"),t.kw);
+      dwellable(el,()=>addTile({...t,cat:c.cat}));
+      wrap.appendChild(el);
+    });
+    sec.appendChild(wrap);p.appendChild(sec);
+  });
+}
+function renderSaved(){
+  const m=$("#mytiles");
+  if(!saved.length){m.innerHTML=`<span class="empty-hint">Nog geen bewaarde tegels. Bouw een zin en klik “Bewaar als tegel”.</span>`;return;}
+  m.innerHTML="";
+  saved.forEach((c)=>{
+    const el=document.createElement("div");el.className="ctile";
+    el.innerHTML=`<div class="name">🧩 ${c.name}</div>
+      <div class="dots">${c.tiles.map(t=>`<span>${t.emoji}</span>`).join("")}</div>
+      <div class="sent">"${c.sentence}"</div><div class="dwell"></div>`;
+    dwellable(el,()=>{ story.push(c.sentence); renderStory(); say(c.sentence); });
+    m.appendChild(el);
+  });
+}
+function renderStory(){
+  const l=$("#lane");
+  if(!story.length){l.innerHTML=`<span class="empty-hint">Tik bewaarde tegels aan om een verhaal te bouwen.</span>`;return;}
+  l.innerHTML="";
+  story.forEach((s,i)=>{
+    const el=document.createElement("div");el.className="ctile";el.style.background="#0ea5e9";
+    el.style.boxShadow="0 3px 0 rgba(0,0,0,.25), 5px 7px 0 -2px rgba(14,165,233,.45)";
+    el.innerHTML=`<div class="name">${i+1}.</div><div class="sent">"${s}"</div><div class="dwell"></div>`;
+    dwellable(el,()=>say(s));
+    l.appendChild(el);
+  });
+}
+
+/* ───────────────  ACTIONS  ─────────────── */
+function addTile(t){ if(seq.length>=MAX){flash("Maximaal 6 tegels");return;} seq.push(t); renderSeq(); say(t.word); }
+function readAloud(){ const s=interpret(seq); if(s) say(s); }
+function saveAsTile(){
+  const s=interpret(seq); if(!s){flash("Bouw eerst een zin");return;}
+  const name = seq.slice(0,2).map(t=>t.label).join(" ")+(seq.length>2?"…":"");
+  saved.push({name, emoji:seq[0]?.emoji||"🧩", sentence:s, tiles:[...seq]});
+  renderSaved(); flash("Bewaard als tegel 🧩");
+}
+function flash(t){$("#flashCard").textContent=t;$("#flash").classList.add("show");clearTimeout(flash._t);flash._t=setTimeout(()=>$("#flash").classList.remove("show"),1100);}
+
+/* ───────────────  WIRING  ─────────────── */
+$("#readBtn").onclick=readAloud;
+$("#playInterp").onclick=readAloud;
+$("#saveBtn").onclick=saveAsTile;
+$("#clearBtn").onclick=()=>{seq=[];renderSeq();};
+$("#clearStory").onclick=()=>{story=[];renderStory();};
+$("#playStory").onclick=async()=>{ for(const s of story){ await new Promise(r=>{ const done=()=>r();
+  // speak sequentially via web speech (eleven plays async; small gap)
+  speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(s);u.lang="nl-NL";if(nlVoice)u.voice=nlVoice;u.onend=done;u.onerror=done;speechSynthesis.speak(u);
+  setTimeout(done,3500); }); } };
+$("#eyeBtn").onclick=()=>{ if(gaze.on){gaze.ws&&gaze.ws.close();setEye(false);} else {setEye(false,"verbinden…");connectGaze();} };
+// persist eleven settings in session
+["elKey","elVoice","elOn"].forEach(id=>{const k="styx_"+id;const el=$("#"+id);
+  const v=sessionStorage.getItem(k); if(v!=null){ if(el.type==="checkbox")el.checked=v==="1"; else el.value=v; }
+  el.addEventListener("change",()=>sessionStorage.setItem(k, el.type==="checkbox"?(el.checked?"1":"0"):el.value));});
+
+renderPalette(); renderSeq(); renderSaved(); renderStory();
+</script>
+</body>
+</html>

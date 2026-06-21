@@ -1,0 +1,18 @@
+# Local only — not part of the repo (top-row builder experiment only)
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+README.md
+web/index.html
+eyetrax_bridge/
+web/her-screen.jpg
+web/overlay.html
+web/homescreen.html
+web/pcs/
+web/boards/
+
+# v2 — publishable navigator; board images stay LOCAL ONLY (licensed PCS)
+v2/boards/*
+!v2/boards/.gitkeep
+!v2/README.md

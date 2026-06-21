@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>STYX</title>
+<style>
+  :root{--accent:#f59e0b;--bg:#1b1f27;--board:#e9eef3}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       display:flex;align-items:center;justify-content:center;min-height:100vh}
+
+  .device{width:min(100vw,calc(100vh*1.6));background:#cdd3da;border-radius:18px;padding:14px;
+       box-shadow:0 14px 44px rgba(0,0,0,.55)}
+  /* Tellus native screen is 1280×800 → 16:10 */
+  .board{background:var(--board);border-radius:12px;padding:12px;position:relative;
+       display:grid;grid-template-columns:repeat(6,1fr);grid-template-rows:repeat(6,1fr);gap:10px;aspect-ratio:16/10}
+  .anim{animation:slidein .18s ease}
+  @keyframes slidein{from{opacity:0;transform:translateX(var(--dx,18px))}to{opacity:1;transform:none}}
+
+  .cell{position:relative;border-radius:10px;border:1px solid #d7dde4;background:#fff;cursor:pointer;overflow:hidden;
+       user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.18);transition:transform .07s;padding:2px}
+  .cell:active{transform:scale(.97)}
+  .cell .cardimg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+  .cell .txtcard{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;
+       padding:6px;font-weight:700;color:#1f2937;font-size:clamp(11px,1.5vw,20px);line-height:1.12}
+  .cell .dwell{position:absolute;left:0;bottom:0;height:5px;width:0;background:var(--accent);z-index:2}
+
+  /* ── builder screen: the home board + a 7th column on the right,
+        same overall screen dimensions; the new column is reserved white space ── */
+  .board.withcol{grid-template-columns:repeat(7,1fr)}
+  .buildspace{grid-column:7;grid-row:1 / span 6;background:#fff;border-radius:10px;border:1px dashed #c3ccd6;
+       display:flex;flex-direction:column;justify-content:flex-end;align-items:stretch;padding:8px}
+  .bspace-back{position:relative;border:1px solid #4a7fb5;background:#dbe8f5;border-radius:10px;cursor:pointer;
+       display:flex;align-items:center;justify-content:center;color:#1f3b5c;font-size:clamp(20px,2.4vw,34px);
+       padding:14px 0;overflow:hidden;user-select:none}
+  .bspace-back:active{transform:scale(.97)}
+  .bspace-back .dwell{position:absolute;left:0;bottom:0;height:5px;width:0;background:var(--accent);z-index:2}
+
+  #gazeDot{position:fixed;width:26px;height:26px;border:3px solid var(--accent);border-radius:50%;
+       margin-left:-13px;margin-top:-13px;pointer-events:none;z-index:60;display:none;box-shadow:0 0 14px rgba(245,158,11,.85);transition:left .04s linear,top .04s linear}
+  #gazeDot.on{display:block}
+  .flash{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.5);z-index:50}
+  .flash.show{display:flex}.flash .card{background:#fff;color:#111;border-radius:16px;padding:24px 36px;font-size:26px;font-weight:800;max-width:80vw;text-align:center}
+</style>
+</head>
+<body>
+  <div class="device" id="device"><div id="stage"></div></div>
+  <div id="gazeDot"></div>
+  <div class="flash" id="flash"><div class="card" id="flashCard"></div></div>
+
+<script>
+const IMG_V="6"; // cache-bust for sliced board crops
+const NAME="Noor"; // codename — change here to rename everywhere (no real names in this demo)
+
+/* ── BOARDS ──────────────────────────────────────────────────────────────
+   cell fields: r,c (1-indexed 6×6) · say (spoken NL) · to (folder→board id)
+                back:true (Terug) · img (custom image override) · text (generated text card)
+   Add a board: slice its screenshot into boards/<id>/, then list cells here. */
+const BOARDS = {
+  home: { cells: [
+    {r:1,c:1,say:"algemeen",to:"algemeen"},
+    {r:1,c:2,say:"Nee"},
+    {r:1,c:3,say:"dagbesteding"},
+    {r:1,c:5,say:"Villa"},
+    {r:1,c:6,say:"Ja"},
+    {r:2,c:1,say:"Builder",text:"Builder",to:"builder"},
+    {r:2,c:2,say:"eten"},
+    {r:2,c:4,say:"personen",to:"personen"},
+    {r:2,c:6,say:"drinken en snacks"},
+    {r:3,c:1,say:"kleding"},
+    {r:3,c:2,say:"Waar ben ik?"},
+    {r:3,c:3,say:`Ik ben ${NAME}`,text:`Ik ben ${NAME}`,to:"over-mij"},
+    {r:3,c:4,say:"verzorging"},
+    {r:3,c:5,say:"Kan ik een spelletje spelen?"},
+    {r:3,c:6,say:"tijd"},
+    {r:4,c:2,say:"Ik ben nu aan de beurt. Wil je even wachten?"},
+    {r:4,c:3,say:"gesprek"},
+    {r:4,c:4,say:"lichaam"},
+    {r:4,c:6,say:"weer"},
+    {r:5,c:1,say:"activiteiten"},
+    {r:5,c:3,say:"gevoelens"},
+    {r:5,c:5,say:"communicatie"},
+    {r:5,c:6,say:"spel"},
+    {r:6,c:1,say:"dingen"},
+    {r:6,c:2,say:"Oogbesturing",action:"toggleGaze"},
+    {r:6,c:3,say:"Afstellen oogbediening"},
+    {r:6,c:4,say:"Accu percentage honderd"},
+    {r:6,c:5,say:"villa nieuwtjes"},
+  ]},
+  algemeen: { cells: [
+    {r:1,c:1,say:"rolstoel",to:"rolstoel"},
+    {r:1,c:3,say:"Zijn er nieuwe foto's op mijn lijstje?"},
+    {r:1,c:4,say:"uitspraken"},
+    {r:1,c:6,back:true},
+    {r:2,c:2,say:"Wil je iets voor me meenemen?"},
+    {r:2,c:4,say:"Kan ik even een spelletje doen?"},
+    {r:3,c:1,say:"Ja"},
+    {r:3,c:3,say:"Kan ik even bellen?"},
+    {r:3,c:5,say:"Nee"},
+    {r:3,c:6,say:"Je begrijpt me niet"},
+    {r:4,c:2,say:"Ik weet het niet"},
+    {r:4,c:4,say:"Wil je mijn computer wegdraaien?"},
+    {r:4,c:6,say:"verrassing"},
+    {r:5,c:1,say:"misschien"},
+    {r:5,c:3,say:"Duurt het nog lang?"},
+    {r:5,c:5,say:"Goed idee!"},
+    {r:6,c:1,say:"een beetje"},
+    {r:6,c:2,say:"Graag!"},
+    {r:6,c:4,say:"Je vergeet iets!"},
+    {r:6,c:6,say:"geheimpje"},
+  ]},
+  rolstoel: { cells: [
+    {r:1,c:1,say:"Mijn taxihesje moet nog vast"},
+    {r:1,c:2,say:"Wil je mijn taxihesje losmaken?"},
+    {r:1,c:3,say:"Wil je mijn rolstoeltas uitruimen?"},
+    {r:1,c:4,say:"Wil je mijn voeten vastzetten?"},
+    {r:1,c:5,say:"Wil je mijn voeten los maken"},
+    {r:1,c:6,back:true},
+    {r:2,c:1,say:"Ik wil mijn schoenen uit"},
+    {r:2,c:2,say:"Ik wil mijn pantoffels aan"},
+    {r:2,c:3,say:"Mijn klos zit niet goed"},
+    {r:2,c:4,say:"Wil je me verdrogen?"},
+    {r:2,c:5,say:"Ik wil een schone slab"},
+    {r:2,c:6,say:"Ik moet een grote boodschap"},
+  ]},
+  "over-mij": { cells: [
+    {r:1,c:3,say:"Dat bedoel ik niet"},
+    {r:1,c:6,back:true},
+    {r:2,c:2,say:"Thuis"},
+    {r:2,c:4,say:"Ik ben nu 37 jaar"},
+    {r:3,c:1,say:"dagbesteding"},
+    {r:3,c:3,say:"bus"},
+    {r:3,c:5,say:"gezin"},
+    {r:4,c:2,say:"rooster dagbesteding"},
+    {r:4,c:4,say:"Vakantie"},
+    {r:4,c:6,say:"Bezoek"},
+    {r:5,c:1,say:"hobbies"},
+    {r:5,c:5,say:"mobiliteit"},
+    {r:6,c:2,say:"communiceren"},
+    {r:6,c:4,say:"allergie"},
+    {r:6,c:6,say:`Ik heet ${NAME}`,text:`Ik heet ${NAME}`},
+  ]},
+  personen: { cells: [
+    {r:1,c:2,say:"familie 1"},
+    {r:1,c:3,say:"Ik"},
+    {r:1,c:4,say:"familie 2"},
+    {r:1,c:6,back:true},
+    {r:2,c:1,say:"je krijgt de groeten van"},
+    {r:2,c:3,say:"hoe is het met"},
+    {r:2,c:5,say:"Vrienden"},
+    {r:3,c:1,say:"jarig"},
+    {r:3,c:3,say:"Baby"},
+    {r:3,c:5,say:"Doe de groeten aan"},
+    {r:3,c:6,say:"Beroepen"},
+    {r:4,c:2,say:"Overleden"},
+    {r:4,c:4,say:"Op visite gaan"},
+    {r:4,c:6,say:"Bellen met"},
+    {r:5,c:1,say:"Op visite komen"},
+    {r:5,c:3,say:"Skypen met"},
+    {r:5,c:5,say:"ziek"},
+    {r:6,c:2,say:"vriend",text:"vriend"},
+    {r:6,c:4,say:"vriend",text:"vriend"},
+    {r:6,c:6,say:"kaartje sturen aan"},
+  ]},
+  builder: { split:true },
+};
+
+const $=s=>document.querySelector(s);
+
+/* speech NL */
+let nlVoice=null;function pv(){const v=speechSynthesis.getVoices();nlVoice=v.find(x=>x.lang&&x.lang.toLowerCase().startsWith("nl"))||null;}
+speechSynthesis.onvoiceschanged=pv;pv();
+function say(t){if(!t)return;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang="nl-NL";if(nlVoice)u.voice=nlVoice;u.rate=.98;speechSynthesis.speak(u);}catch(e){}}
+
+/* dwell + gaze (no on-screen chrome — dwell on by default; G=gaze, D=dwell)
+   DWELL_DELAY = rest time before the dwell timer even starts (avoids accidental hovers)
+   DWELL       = fill speed once it starts (unchanged) */
+const DWELL=850, DWELL_DELAY=1000, gaze={on:false,ws:null,el:null,sx:.5,sy:.5};
+let dwellOn=true;
+function dwellable(el,fire){const bar=el.querySelector(".dwell");let t=null,delayT=null;el.setAttribute("data-dwell","1");
+  el._start=()=>{
+    delayT=setTimeout(()=>{
+      if(bar){bar.style.transition="none";bar.style.width="0";requestAnimationFrame(()=>{bar.style.transition=`width ${DWELL}ms linear`;bar.style.width="100%";});}
+      t=setTimeout(()=>{if(bar)bar.style.width="0";fire();},DWELL);
+    },DWELL_DELAY);
+  };
+  el._cancel=()=>{if(delayT){clearTimeout(delayT);delayT=null;}if(t){clearTimeout(t);t=null;}if(bar){bar.style.transition="none";bar.style.width="0";}};
+  el.addEventListener("click",fire);
+  el.addEventListener("pointerenter",()=>{if(!gaze.on&&dwellOn)el._start();});
+  el.addEventListener("pointerleave",()=>{if(!gaze.on)el._cancel();});}
+function connectGaze(){try{gaze.ws=new WebSocket("ws://localhost:8765");}catch(e){return;}
+  gaze.ws.onopen=()=>setEye(true);gaze.ws.onclose=()=>setEye(false);gaze.ws.onerror=()=>setEye(false);
+  gaze.ws.onmessage=e=>{try{const d=JSON.parse(e.data);if(d.nx!=null)onGaze(d.nx,d.ny);}catch(_){}};}
+function setEye(on){gaze.on=on;$("#gazeDot").classList.toggle("on",on);if(!on&&gaze.el){gaze.el._cancel&&gaze.el._cancel();gaze.el=null;}}
+/* explicit on/off intent so the toggle always alternates, even if the bridge
+   is slow to connect or not running (otherwise it can get stuck on "on") */
+let gazeWanted=false;
+function toggleGaze(){
+  gazeWanted=!gazeWanted;
+  if(gazeWanted){ connectGaze(); }
+  else { if(gaze.ws){try{gaze.ws.close();}catch(e){}} setEye(false); }
+  return gazeWanted;
+}
+function onGaze(nx,ny){gaze.sx=.4*nx+.6*gaze.sx;gaze.sy=.4*ny+.6*gaze.sy;
+  const x=gaze.sx*innerWidth,y=gaze.sy*innerHeight;const d=$("#gazeDot");d.style.left=x+"px";d.style.top=y+"px";
+  const hit=document.elementFromPoint(x,y);const dw=hit&&hit.closest?hit.closest("[data-dwell]"):null;
+  if(dw!==gaze.el){if(gaze.el&&gaze.el._cancel)gaze.el._cancel();gaze.el=dw;if(gaze.el&&gaze.el._start)gaze.el._start();}}
+
+function flash(t){$("#flashCard").textContent=t;$("#flash").classList.add("show");clearTimeout(flash._t);flash._t=setTimeout(()=>$("#flash").classList.remove("show"),1100);}
+
+/* build one tile element (shared by grid + split board) */
+function makeCell(cell,boardId,onActivate){
+  const el=document.createElement("div");el.className="cell";
+  el.style.gridRow=cell.r;el.style.gridColumn=cell.c;
+  if(cell.text){
+    const tx=document.createElement("div");tx.className="txtcard";tx.textContent=cell.text;el.appendChild(tx);
+  }else{
+    const img=document.createElement("img");img.className="cardimg";
+    // if the board crop isn't present (e.g. published repo without the licensed PCS
+    // images), fall back to a text label so the navigator still renders & runs
+    img.onerror=()=>{img.remove();const tx=document.createElement("div");tx.className="txtcard";tx.textContent=cell.say||"";el.insertBefore(tx,el.firstChild);};
+    img.src=cell.img ? `${cell.img}?v=${IMG_V}` : `boards/${boardId}/r${cell.r}c${cell.c}.png?v=${IMG_V}`;
+    el.appendChild(img);
+  }
+  const dw=document.createElement("div");dw.className="dwell";el.appendChild(dw);
+  dwellable(el,()=>onActivate(cell));
+  return el;
+}
+
+/* ── navigation ── */
+let cur="home"; const stack=[];
+function activate(cell){
+  if(cell.action==="toggleGaze"){ const on=toggleGaze(); const m=on?"Oogbesturing aan":"Oogbesturing uit"; say(m); flash(m); return; }
+  if(cell.to){ stack.push(cur); render(cell.to, 1); return; }
+  if(cell.back){ goBack(); return; }
+  if(cell.say){ say(cell.say); flash(cell.say); }
+}
+function goBack(){ const prev=stack.pop()||"home"; render(prev, -1); }
+
+function render(boardId, dir){
+  cur=boardId; const def=BOARDS[boardId];
+  const stage=$("#stage"); stage.innerHTML="";
+  if(def.split){ renderBuilder(stage, dir); return; }
+
+  const b=document.createElement("div"); b.className="board";
+  b.style.setProperty("--dx",(dir<0?-18:18)+"px");
+  if(dir!==0) b.classList.add("anim");
+  def.cells.forEach(cell=> b.appendChild(makeCell(cell,boardId,activate)));
+  stage.appendChild(b);
+}
+
+/* builder screen: the home board, same dimensions, with a 7th column added
+   on the right as reserved white space for the overlay builder (step 2). */
+function renderBuilder(stage, dir){
+  const b=document.createElement("div"); b.className="board withcol"+(dir!==0?" anim":"");
+  b.style.setProperty("--dx",(dir<0?-18:18)+"px");
+  // tiles just speak here for now (Esc / Backspace returns home); they will feed the builder next
+  BOARDS.home.cells.forEach(cell=> b.appendChild(makeCell(cell,"home",c=>{say(c.say);flash(c.say);})));
+  const space=document.createElement("div"); space.className="buildspace";
+  // back arrow at the bottom of the overlay column → home
+  const back=document.createElement("div"); back.className="bspace-back";
+  back.innerHTML=`←<div class="dwell"></div>`;
+  dwellable(back, goBack);
+  space.appendChild(back);
+  b.appendChild(space);
+  stage.appendChild(b);
+}
+
+addEventListener("keydown",e=>{
+  const k=e.key.toLowerCase();
+  if(k==="g"){toggleGaze();}
+  if(k==="d"){dwellOn=!dwellOn;}
+  if(k==="escape"||k==="backspace"){ if(stack.length) goBack(); }
+});
+$("#flash").onclick=()=>$("#flash").classList.remove("show");
+render("home", 0);
+</script>
+</body>
+</html>

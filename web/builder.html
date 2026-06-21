@@ -75,6 +75,7 @@
   .tile.gevoel{background:var(--gevoel);color:#3a2f00} .tile.gevoel .lab{color:#3a2f00;text-shadow:none}
   .tile .dwell{position:absolute;left:0;bottom:0;height:5px;width:0;background:#fff;opacity:.9}
   .tile.dimmed{opacity:.35;pointer-events:none}
+  button.tile{font-family:inherit}
 
   /* ── STORY lane (composite blocks) ── */
   .story{background:#ffffff;border:1px solid #d1d9e0;border-radius:14px;padding:12px}
@@ -105,13 +106,13 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>STYX Builder — bouw je eigen zin 🧱</h1>
-    <p class="sub">Kies tegels, zet ze op een rij (max 6), en de motor maakt er een echte zin van — en leest die voor.</p>
+    <!--<h1>STYX Builder — bouw je eigen zin 🧱</h1>-->
+    <!--<p class="sub">Kies tegels, zet ze op een rij (max 6), en de motor maakt er een echte zin van — en leest die voor.</p>-->
 
     <div class="bar">
-      <button class="btn primary" id="readBtn">🔊 Lees voor</button>
-      <button class="btn pink" id="saveBtn">💾 Bewaar als tegel</button>
-      <button class="btn" id="clearBtn">⌫ Wis rij</button>
+      <button class="tile wie" id="readBtn"><div class="lab">Lees voor</div><div class="pic"><span class="emoji"></span></div><div class="dwell"></div></button>
+      <button class="tile" id="saveBtn" style="background:var(--composite)"><div class="lab">Bewaar</div><div class="pic"><span class="emoji"></span></div><div class="dwell"></div></button>
+      <button class="tile" id="clearBtn" style="background:#6b7280"><div class="lab">Wis rij</div><div class="pic"><span class="emoji"></span></div><div class="dwell"></div></button>
       <button class="btn" id="eyeBtn">👁️ Eye tracking: uit</button>
       <details class="settings">
         <summary>⚙️ ElevenLabs</summary>
@@ -123,11 +124,11 @@
 
     <!-- THE PROGRAM -->
     <div class="stage">
-      <div class="seqlabel">Jouw zin — stap voor stap</div>
+      <!--<div class="seqlabel">Jouw zin — stap voor stap</div>-->
       <div class="seqrow" id="seqrow"></div>
       <div class="interp">
         <button class="play" id="playInterp">🔊</button>
-        <div class="txt empty" id="interp">Kies een tegel om te beginnen…</div>
+        <div class="txt empty" id="interp"><!-- Kies een tegel om te beginnen… --></div>
       </div>
     </div>
 
@@ -317,7 +318,7 @@ function updatePaletteDim(){
 function updateInterp(){
   const s=interpret(seq);
   const el=$("#interp");
-  if(!s){el.className="txt empty";el.textContent="Kies een tegel om te beginnen…";}
+  if(!s){el.className="txt empty";el.textContent="";}
   else{el.className="txt";el.textContent='"'+s+'"';}
 }
 function renderPalette(){
@@ -375,10 +376,16 @@ function saveAsTile(){
 function flash(t){$("#flashCard").textContent=t;$("#flash").classList.add("show");clearTimeout(flash._t);flash._t=setTimeout(()=>$("#flash").classList.remove("show"),1100);}
 
 /* ───────────────  WIRING  ─────────────── */
+dwellable($("#readBtn"),readAloud);
+(()=>{const p=$("#readBtn .pic");p.style.backgroundImage="url(https://static.arasaac.org/pictograms/6517/6517_300.png)";p.classList.add("has-img");})();
 $("#readBtn").onclick=readAloud;
-$("#playInterp").onclick=readAloud;
+dwellable($("#saveBtn"),saveAsTile);
+(()=>{const p=$("#saveBtn .pic");p.style.backgroundImage="url(https://static.arasaac.org/pictograms/2752/2752_300.png)";p.classList.add("has-img");})();
 $("#saveBtn").onclick=saveAsTile;
+dwellable($("#clearBtn"),()=>{seq=[];renderSeq();});
+(()=>{const p=$("#clearBtn .pic");p.style.backgroundImage="url(https://static.arasaac.org/pictograms/2409/2409_300.png)";p.classList.add("has-img");})();
 $("#clearBtn").onclick=()=>{seq=[];renderSeq();};
+$("#playInterp").onclick=readAloud;
 $("#clearStory").onclick=()=>{story=[];renderStory();};
 $("#playStory").onclick=async()=>{ for(const s of story){ await new Promise(r=>{ const done=()=>r();
   // speak sequentially via web speech (eleven plays async; small gap)
